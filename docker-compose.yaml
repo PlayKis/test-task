@@ -1,0 +1,44 @@
+services:
+  # Minio S3 хранилище
+  minio:
+    image: minio/minio:latest
+    container_name: minio-storage
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
+    volumes:
+      - ./docker-data/minio/data:/data
+    networks:
+      - spark-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Spark приложение - используем официальный образ с конкретной версией
+  spark-app:
+    image: apache/spark:3.5.3  # Стабильная версия Spark 3.5.3
+    container_name: spark-app
+    user: root
+    depends_on:
+      - minio
+    environment:
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password123
+    volumes:
+      - ./app:/opt/spark/app
+      - ./data:/opt/spark/data
+    working_dir: /opt/spark/app
+    command: sleep infinity
+    networks:
+      - spark-network
+
+networks:
+  spark-network:
+    driver: bridge
